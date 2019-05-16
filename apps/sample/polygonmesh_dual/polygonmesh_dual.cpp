@@ -74,10 +74,11 @@ struct PUsedTypes: public vcg::UsedTypes<vcg::Use<PVertex>  ::AsVertexType,
                                           vcg::Use<PFace>	::AsFaceType>{};
 
 class PVertex:public vcg::Vertex<	PUsedTypes,
-                                    vcg::vertex::Coord3f,
-                                    vcg::vertex::Normal3f,
-                                    vcg::vertex::Mark,
-                                    vcg::vertex::BitFlags>{} ;
+    vcg::vertex::Coord3f,
+    vcg::vertex::Normal3f,
+    vcg::vertex::Mark,
+    vcg::vertex::Qualityf,
+    vcg::vertex::BitFlags>{} ;
 
 class PFace:public vcg::Face<
      PUsedTypes
@@ -88,6 +89,7 @@ class PFace:public vcg::Face<
     ,vcg::face::PFVAdj
     ,vcg::face::PFFAdj	 // Pointer to edge-adjacent face (just like FFAdj )
     ,vcg::face::BitFlags // bit flags
+    ,vcg::face::Qualityf // quality
     ,vcg::face::Normal3f // normal
 > {};
 

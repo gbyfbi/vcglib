@@ -274,7 +274,7 @@ void SegmentPointSquaredDistance( const Segment3<ScalarType> &s,
 		ScalarType  t = ((p-s.P0())*e)/eSquaredNorm;
 		if(t<0)      t = 0;
 		else if(t>1) t = 1;
-		closest = s.P0()+e*t;
+		closest = s.P0() * (1.0 - t) + s.P1() * t;
 		sqr_dist = SquaredDistance(p,closest);
 		assert(!math::IsNAN(sqr_dist));
 	}
@@ -380,7 +380,7 @@ void SegmentSegmentDistance(const vcg::Segment3<ScalarType> &s0,
 	dist=(closest0-closest1).Norm();
 }
 
- /* @brief Computes the distance between a triangle and a point.
+/** @brief Computes the distance between a triangle and a point.
  *
  * @param t         reference to the triangle
  * @param q         point location
@@ -447,7 +447,7 @@ void TrianglePointDistance(const vcg::Triangle3<ScalarType> &t,
 }
 
 
-/*
+/**
 * return the distance between a triangle and a segment
 * @param[in] t				The input triangle
 * @param[in] s				The input segment

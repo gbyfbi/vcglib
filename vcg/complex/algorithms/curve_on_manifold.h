@@ -119,7 +119,7 @@ public:
   {
     ScalarType closestDist;
     CoordType closestP;
-    return vcg::tri::GetClosestFaceBase(base,uniformGrid,p, p.gridBailout, closestDist, closestP);
+    return vcg::tri::GetClosestFaceBase(base,uniformGrid,p, this->par.gridBailout, closestDist, closestP);
   }
   
   FaceType *GetClosestFaceIP(const CoordType &p, CoordType &ip)
@@ -127,6 +127,13 @@ public:
       ScalarType closestDist;
       CoordType closestP,closestN;
       return vcg::tri::GetClosestFaceBase(base,uniformGrid,p, this->par.gridBailout, closestDist, closestP,closestN,ip);
+    }
+
+  FaceType *GetClosestFaceIP(const CoordType &p, CoordType &ip, CoordType &in)
+    {
+      ScalarType closestDist;
+      CoordType closestP;
+      return vcg::tri::GetClosestFaceBase(base,uniformGrid,p, this->par.gridBailout, closestDist, closestP,in,ip);
     }
 
   FaceType *GetClosestFacePoint(const CoordType &p, CoordType &closestP)
@@ -169,7 +176,7 @@ public:
   
   
   /**
-   * @brief MarkFauxEdgeWithPolyLine marks the edges of basemesh as non-faux when they coincide with the polyline ones  *
+   * @brief TagFaceEdgeSelWithPolyLine selects edges of basemesh when they coincide with the polyline ones  *
    * @param poly
    * @return true if all the edges of the polyline are snapped onto the mesh. 
    * 
@@ -177,41 +184,50 @@ public:
    * 
    */
     
-  bool MarkFauxEdgeWithPolyLine(MeshType &poly)
-  {
-    tri::UpdateFlags<MeshType>::FaceSetF(base);
-    tri::UpdateTopology<MeshType>::VertexFace(base);
-    tri::UpdateTopology<MeshType>::FaceFace(base);
+bool TagFaceEdgeSelWithPolyLine(MeshType &poly,bool markFlag=true)
+{
+	if (markFlag)
+		tri::UpdateFlags<MeshType>::FaceClearFaceEdgeS(base);
 
-    bool ret = true;
-    for(EdgeIterator ei=poly.edge.begin(); ei!=poly.edge.end();++ei)
-    {
-      CoordType ip0,ip1;
-      FaceType *f0 = GetClosestFaceIP(ei->cP(0),ip0);
-      FaceType *f1 = GetClosestFaceIP(ei->cP(1),ip1);
-      
-      if(BarycentricSnap(ip0) && BarycentricSnap(ip1))
-      {
-        VertexPointer v0 = FindVertexSnap(f0,ip0);
-        VertexPointer v1 = FindVertexSnap(f1,ip1);
-        assert(v1>0 && v0>0 && v0!=v1);
-        FacePointer ff0,ff1;
-        int e0,e1;
-        ret &= face::FindSharedFaces<FaceType>(v0,v1,ff0,ff1,e0,e1);
-        if(ret) {
-          assert(ff0->V(e0)==v0 || ff0->V(e0)==v1);
-          ff0->ClearF(e0);
-          ff1->ClearF(e1);
-        }
-      }
-      else
-      {
-        assert(0);
-      }
-    }
-    return ret;
-  }
-   
+	tri::UpdateTopology<MeshType>::VertexFace(base);
+	tri::UpdateTopology<MeshType>::FaceFace(base);
+
+	for(EdgeIterator ei=poly.edge.begin(); ei!=poly.edge.end();++ei)
+	{
+		CoordType ip0,ip1;
+		FaceType *f0 = GetClosestFaceIP(ei->cP(0),ip0);
+		FaceType *f1 = GetClosestFaceIP(ei->cP(1),ip1);
+
+		if(BarycentricSnap(ip0) && BarycentricSnap(ip1))
+		{
+			VertexPointer v0 = FindVertexSnap(f0,ip0);
+			VertexPointer v1 = FindVertexSnap(f1,ip1);
+
+			if(v0==0 || v1==0)
+				return false;
+			if(v0==v1)
+				return false;
+
+			FacePointer ff0,ff1;
+			int e0,e1;
+			bool ret=face::FindSharedFaces<FaceType>(v0,v1,ff0,ff1,e0,e1);
+			if(ret)
+			{
+				assert(ret);
+				assert(ff0->V(e0)==v0 || ff0->V(e0)==v1);
+				ff0->SetFaceEdgeS(e0);
+				ff1->SetFaceEdgeS(e1);
+			} else {
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+	return true;
+}
+
   ScalarType MinDistOnEdge(CoordType samplePnt, EdgeGrid &edgeGrid, MeshType &poly, CoordType &closestPoint)
   {
       ScalarType polyDist;
@@ -626,7 +642,7 @@ public:
     tri::UpdateTopology<MeshType>::TestVertexEdge(poly);
     tri::Allocator<MeshType>::CompactEveryVector(poly);
     tri::UpdateTopology<MeshType>::TestVertexEdge(poly);
-    printf("Simplify %5i -> %5i (total len %5.2f)\n",startEn,poly.en,hist.Sum());
+//    printf("Simplify %5i -> %5i (total len %5.2f)\n",startEn,poly.en,hist.Sum());
   }
   
   void EvaluateHausdorffDistance(MeshType &poly, Distribution<ScalarType> &dist)
@@ -991,7 +1007,7 @@ public:
       }
     }
 //    tri::Allocator<MeshType>::CompactEveryVector(poly);
-    printf("Refine %i -> %i\n",startEdgeSize,poly.en);fflush(stdout);
+//    printf("Refine %i -> %i\n",startEdgeSize,poly.en);fflush(stdout);
   }
   
   /**
@@ -1052,7 +1068,7 @@ public:
   {
     tri::RequireCompactness(poly);
     tri::UpdateTopology<MeshType>::VertexEdge(poly);
-    printf("SmoothProject: Selected vert num %i\n",tri::UpdateSelection<MeshType>::VertexCount(poly));
+//    printf("SmoothProject: Selected vert num %i\n",tri::UpdateSelection<MeshType>::VertexCount(poly));
     assert(poly.en>0 && base.fn>0);
     for(int k=0;k<iterNum;++k)
     {
@@ -1101,7 +1117,7 @@ public:
       tri::UpdateTopology<MeshType>::TestVertexEdge(poly);
       int dupVertNum = Clean<MeshType>::RemoveDuplicateVertex(poly);
       if(dupVertNum) {
-        printf("****REMOVED %i Duplicated\n",dupVertNum);
+//        printf("****REMOVED %i Duplicated\n",dupVertNum);
         tri::Allocator<MeshType>::CompactEveryVector(poly);
         tri::UpdateTopology<MeshType>::VertexEdge(poly);
       }

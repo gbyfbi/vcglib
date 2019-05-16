@@ -31,6 +31,7 @@
 #include <vcg/complex/algorithms/closest.h>
 #include <vcg/space/index/grid_static_ptr.h>
 #include <vcg/complex/algorithms/inertia.h>
+#include <vcg/space/polygon3.h>
 
 
 namespace vcg {
@@ -51,37 +52,45 @@ public:
   typedef typename MeshType::FacePointer    FacePointer;
   typedef typename MeshType::FaceIterator   FaceIterator;
   typedef typename MeshType::FaceContainer  FaceContainer;
+  typedef typename MeshType::TetraType      TetraType;
+  typedef typename MeshType::TetraPointer   TetraPointer;
+  typedef typename MeshType::TetraIterator  TetraIterator;
+  typedef typename MeshType::TetraContainer TetraContainer;
   typedef typename vcg::Box3<ScalarType>  Box3Type;
 
-  static void ComputePerVertexQualityMinMax( MeshType & m, float &minV, float &maxV)
+  static void ComputePerVertexQualityMinMax(MeshType & m, ScalarType &minV, ScalarType &maxV)
   {
-    std::pair<float,float> pp=ComputePerVertexQualityMinMax(m);
-    minV=pp.first; maxV=pp.second;
+    std::pair<ScalarType, ScalarType> pp = ComputePerVertexQualityMinMax(m);
+    
+    minV=pp.first;
+    maxV=pp.second;
   }
-  static std::pair<float,float> ComputePerVertexQualityMinMax( MeshType & m)
+  static std::pair<ScalarType, ScalarType> ComputePerVertexQualityMinMax(MeshType & m)
   {
 //    assert(0);
     tri::RequirePerVertexQuality(m);
-    typename MeshType::template PerMeshAttributeHandle  < std::pair<float,float> > mmqH;
-    mmqH = tri::Allocator<MeshType>::template GetPerMeshAttribute <std::pair<float,float> >(m,"minmaxQ");
+    typename MeshType::template PerMeshAttributeHandle  < std::pair<ScalarType, ScalarType> > mmqH;
+    mmqH = tri::Allocator<MeshType>::template GetPerMeshAttribute <std::pair<ScalarType, ScalarType> >(m,"minmaxQ");
 
-    std::pair<float,float> minmax = std::make_pair(std::numeric_limits<float>::max(),-std::numeric_limits<float>::max());
+    std::pair<ScalarType, ScalarType> minmax = std::make_pair(std::numeric_limits<ScalarType>::max(), -std::numeric_limits<ScalarType>::max());
 
     for(VertexIterator vi = m.vert.begin(); vi != m.vert.end(); ++vi)
       if(!(*vi).IsD())
       {
-        if( (*vi).Q() < minmax.first) minmax.first=(*vi).Q();
-        if( (*vi).Q() > minmax.second) minmax.second=(*vi).Q();
+        if( (*vi).Q() < minmax.first)  minmax.first  = (*vi).Q();
+        if( (*vi).Q() > minmax.second) minmax.second = (*vi).Q();
       }
 
     mmqH() = minmax;
     return minmax;
   }
 
-  static void ComputePerFaceQualityMinMax( MeshType & m, float &minV, float &maxV)
+
+  static void ComputePerFaceQualityMinMax(MeshType & m, ScalarType &minV, ScalarType &maxV)
   {
-    std::pair<float,float> pp=ComputePerFaceQualityMinMax(m);
-    minV=pp.first; maxV=pp.second;
+    std::pair<ScalarType, ScalarType> pp = ComputePerFaceQualityMinMax(m);
+    minV=pp.first; 
+    maxV=pp.second;
   }
 
   static std::pair<ScalarType,ScalarType> ComputePerFaceQualityMinMax( MeshType & m)
@@ -93,13 +102,46 @@ public:
     for(fi = m.face.begin(); fi != m.face.end(); ++fi)
       if(!(*fi).IsD())
       {
-        if( (*fi).Q() < minmax.first)  minmax.first =(*fi).Q();
-        if( (*fi).Q() > minmax.second) minmax.second=(*fi).Q();
+        if( (*fi).Q() < minmax.first)  minmax.first  = (*fi).Q();
+        if( (*fi).Q() > minmax.second) minmax.second = (*fi).Q();
       }
     return minmax;
   }
 
-  static ScalarType ComputePerFaceQualityAvg( MeshType & m)
+  static void ComputePerTetraQualityMinMax(MeshType & m, ScalarType & minQ, ScalarType & maxQ)
+  {
+    std::pair<ScalarType, ScalarType> minmax = ComputerPerTetraQualityMinMax(m);
+
+    minQ = minmax.first;
+    maxQ = minmax.second;
+  }
+
+  static std::pair<ScalarType, ScalarType> ComputePerTetraQualityMinMax(MeshType & m)
+  {
+    tri::RequirePerTetraQuality(m);
+	std::pair<ScalarType, ScalarType> minmax = std::make_pair(std::numeric_limits<ScalarType>::max(), std::numeric_limits<ScalarType>::min());
+
+    ForEachTetra(m, [&minmax] (TetraType & t) {
+      if (t.Q() < minmax.first)  minmax.first  = t.Q();
+      if (t.Q() > minmax.second) minmax.second = t.Q();
+    });
+
+    return minmax;
+  }
+
+  static ScalarType ComputePerTetraQualityAvg(MeshType & m)
+  {
+    tri::RequirePerTetraQuality(m);
+    ScalarType avgQ = 0;
+
+    ForEachTetra(m, [&avgQ] (TetraType & t) {
+      avgQ += t.Q();
+    });
+
+    return avgQ /= (ScalarType) m.TN();
+  }
+
+  static ScalarType ComputePerFaceQualityAvg(MeshType & m)
   {
     tri::RequirePerFaceQuality(m);
     ScalarType AvgQ = 0;
@@ -162,7 +204,7 @@ public:
 	  for (vi = m.vert.begin(); vi != m.vert.end(); ++vi)
 	  if (!(*vi).IsD())
 	  {
-		  ScalarType weight = useQualityAsWeight ? (*vi).Q() : 1.0;
+		  ScalarType weight = useQualityAsWeight ? (*vi).Q() : 1.0f;
 		  accumulator[0] += (double)((*vi).P()[0] * weight);
 		  accumulator[1] += (double)((*vi).P()[1] * weight);
 		  accumulator[2] += (double)((*vi).P()[2] * weight);
@@ -195,6 +237,17 @@ public:
     return barycenter/areaSum;
   }
 
+  static ScalarType ComputeTetraMeshVolume(MeshType & m)
+  {
+    ScalarType V = 0;
+
+    ForEachTetra(m, [&V] (TetraType & t) {
+      V += Tetra::ComputeVolume(t);
+    });
+
+    return V;
+  }
+
   static ScalarType ComputeMeshVolume(MeshType & m)
   {
     Inertia<MeshType> I(m);
@@ -212,7 +265,33 @@ public:
     return area/ScalarType(2.0);
   }
 
-  static void ComputePerVertexQualityDistribution( MeshType & m, Distribution<ScalarType> &h, bool selectionOnly = false)    // V1.0
+  static ScalarType ComputePolyMeshArea(MeshType & m)
+  {
+    ScalarType area=0;
+
+    for(FaceIterator fi = m.face.begin(); fi != m.face.end(); ++fi)
+      if(!(*fi).IsD())
+        area += PolyArea(*fi);
+
+    return area;
+  }
+
+	static ScalarType ComputeBorderLength(MeshType & m)
+	{
+		RequireFFAdjacency(m);
+		ScalarType sum = 0;
+		tri::UpdateTopology<MeshType>::FaceFace(m);
+		ForEachFace(m, [&](FaceType &f) {
+			for (int k=0; k<f.VN(); k++)
+				if (face::IsBorder(f, k))
+				{
+					sum += Distance(f.cP(k), f.cP(1));
+				}
+		});
+		return sum;
+	}
+
+  static void ComputePerVertexQualityDistribution(MeshType & m, Distribution<ScalarType> & h, bool selectionOnly = false)    // V1.0
   {
     tri::RequirePerVertexQuality(m);
     for(VertexIterator vi = m.vert.begin(); vi != m.vert.end(); ++vi)
@@ -235,10 +314,39 @@ public:
       }
   }
 
-  static void ComputePerFaceQualityHistogram( MeshType & m, Histogramf &h, bool selectionOnly=false,int HistSize=10000 )
+  static void ComputePerTetraQualityDistribution(MeshType & m, Distribution<ScalarType> & h, bool selectionOnly = false)
+  {
+    tri::RequirePerTetraQuality(m);
+    ForEachTetra(m, [&] (TetraType & t) {
+      if (!selectionOnly || t.IsS())
+      {
+        assert(!math::IsNAN(t.Q()) && "You should never try to compute Histogram with Invalid Floating points numbers (NaN)");
+        h.Add(t.Q());
+      }
+    });
+  }
+
+  static void ComputePerTetraQualityHistogram(MeshType & m, Histogram<ScalarType> & h, bool selectionOnly = false, int HistSize = 10000)
+  {
+    tri::RequirePerTetraQuality(m);
+	std::pair<ScalarType, ScalarType> minmax = tri::Stat<MeshType>::ComputePerTetraQualityMinMax(m);
+    
+    h.Clear();
+    h.SetRange(minmax.first, minmax.second, HistSize);
+
+    ForEachTetra(m, [&] (TetraType & t) {
+      if (!selectionOnly || t.IsS())
+      {
+        assert(!math::IsNAN(t.Q()) && "You should never try to compute Histogram with Invalid Floating points numbers (NaN)");
+        h.Add(t.Q());
+      }
+    });
+  }
+
+  static void ComputePerFaceQualityHistogram( MeshType & m, Histogram<ScalarType> &h, bool selectionOnly=false,int HistSize=10000 )
   {
     tri::RequirePerFaceQuality(m);
-    std::pair<float,float> minmax = tri::Stat<MeshType>::ComputePerFaceQualityMinMax(m);
+    std::pair<ScalarType, ScalarType> minmax = tri::Stat<MeshType>::ComputePerFaceQualityMinMax(m);
     h.Clear();
     h.SetRange( minmax.first,minmax.second, HistSize );
     for(FaceIterator fi = m.face.begin(); fi != m.face.end(); ++fi)
@@ -248,10 +356,10 @@ public:
       }
   }
 
-  static void ComputePerVertexQualityHistogram( MeshType & m, Histogramf &h, bool selectionOnly = false, int HistSize=10000 )    // V1.0
+  static void ComputePerVertexQualityHistogram( MeshType & m, Histogram<ScalarType> &h, bool selectionOnly = false, int HistSize=10000 )    // V1.0
   {
     tri::RequirePerVertexQuality(m);
-    std::pair<float,float> minmax = ComputePerVertexQualityMinMax(m);
+    std::pair<ScalarType, ScalarType> minmax = ComputePerVertexQualityMinMax(m);
 
     h.Clear();
     h.SetRange( minmax.first,minmax.second, HistSize);
@@ -269,15 +377,15 @@ public:
 
     if(h.MaxCount() > HistSize/5)
     {
-      std::vector<float> QV;
+      std::vector<ScalarType> QV;
       QV.reserve(m.vn);
       for(VertexIterator vi = m.vert.begin(); vi != m.vert.end(); ++vi)
         if(!(*vi).IsD()) QV.push_back((*vi).Q());
 
       std::nth_element(QV.begin(),QV.begin()+m.vn/100,QV.end());
-      float newmin=*(QV.begin()+m.vn/100);
+      ScalarType newmin=*(QV.begin()+m.vn/100);
       std::nth_element(QV.begin(),QV.begin()+m.vn-m.vn/100,QV.end());
-      float newmax=*(QV.begin()+m.vn-m.vn/100);
+      ScalarType newmax=*(QV.begin()+m.vn-m.vn/100);
 
       h.Clear();
       h.SetRange(newmin, newmax, HistSize*50);
@@ -287,7 +395,7 @@ public:
     }
   }
 
-  static void ComputeEdgeLengthHistogram( MeshType & m, Histogramf &h)
+  static void ComputeEdgeLengthHistogram(MeshType & m, Histogram<ScalarType> & h)
   {
     assert(m.edge.size()>0);
     h.Clear();
@@ -303,7 +411,7 @@ public:
 
   static ScalarType ComputeEdgeLengthAverage(MeshType & m)
   {
-    Histogramf h;
+    Histogram<ScalarType> h;
     ComputeEdgeLengthHistogram(m,h);
     return h.Avg();
   }
@@ -316,7 +424,7 @@ public:
     });    
     return sum;
   }
-  static void ComputeFaceEdgeLengthDistribution( MeshType & m, Distribution<float> &h, bool includeFauxEdge=false)
+  static void ComputeFaceEdgeLengthDistribution( MeshType & m, Distribution<ScalarType> & h, bool includeFauxEdge=false)
   {
     std::vector< typename tri::UpdateTopology<MeshType>::PEdge > edgeVec;
     tri::UpdateTopology<MeshType>::FillUniqueEdgeVector(m,edgeVec,includeFauxEdge);

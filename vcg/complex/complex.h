@@ -39,6 +39,7 @@
 #include <stdexcept>
 #include <limits>
 #include <iterator>
+#include <typeindex>
 #include <wrap/callback.h>
 #include <vcg/complex/exception.h>
 #include <vcg/container/simple_temporary_data.h>
@@ -49,6 +50,8 @@
 #include <vcg/simplex/face/topology.h>
 #include <vcg/simplex/edge/pos.h>
 #include <vcg/simplex/edge/topology.h>
+#include <vcg/simplex/tetrahedron/pos.h>
+#include <vcg/simplex/tetrahedron/topology.h>
 #include <vcg/complex/foreach.h>
 #include <vcg/complex/algorithms/update/flag.h>
 #include <vcg/complex/algorithms/update/selection.h>
